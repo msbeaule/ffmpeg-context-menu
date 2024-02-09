@@ -5,7 +5,7 @@ use std::ffi::OsStr;
 
 fn pause() {
     let mut stdout = stdout();
-    stdout.write(b"Press Enter to continue...").unwrap();
+    stdout.write(b"Press Enter to exit...").unwrap();
     stdout.flush().unwrap();
     stdin().read(&mut [0]).unwrap();
 }
@@ -53,7 +53,7 @@ fn convert_to_new(original_full_path: &std::path::PathBuf) {
 
     let new_name = format!("{}/{}-CONVERTED.{}", path.to_str().unwrap(), file_name.to_str().unwrap(), extension.to_str().unwrap());
 
-    Command::new("ffmpeg")
+    let mut child = Command::new("ffmpeg")
         .arg("-i")
         .arg(original_full_path)
         .arg("-map")
@@ -64,5 +64,7 @@ fn convert_to_new(original_full_path: &std::path::PathBuf) {
         .arg("28")
         .arg(new_name)
         .spawn()
-        .expect("ffmpeg command failed to start");
+        .unwrap();
+
+        let _result = child.wait().unwrap();
 }
