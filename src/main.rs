@@ -28,7 +28,7 @@ fn get_full_path_parts(path: &std::path::PathBuf) -> (&OsStr, &OsStr, &OsStr) {
     let file_name = path.file_stem().unwrap();
     let extension = path.extension().unwrap();
     
-    println!("{}", filename.to_str().unwrap());
+    // println!("{}", filename.to_str().unwrap());
 
     return (full_path, file_name, extension);
 }
@@ -36,10 +36,11 @@ fn get_full_path_parts(path: &std::path::PathBuf) -> (&OsStr, &OsStr, &OsStr) {
 fn main() {
     let args = Cli::parse();
 
-    println!("path: {:?}, pattern: {:?}", args.path, args.pattern);
+    // println!("path: {:?}, pattern: {:?}", args.path, args.pattern);
 
     match args.pattern.as_str() {
         "new" => convert_to_new(&args.path),
+        "half_size" => convert_to_new_half_size(&args.path),
         _=> println!("wrong option entered, refer to README"),
     };
 
@@ -66,5 +67,28 @@ fn convert_to_new(original_full_path: &std::path::PathBuf) {
         .spawn()
         .unwrap();
 
-        let _result = child.wait().unwrap();
+    let _result = child.wait().unwrap();
+}
+
+fn convert_to_new_half_size(original_full_path: &std::path::PathBuf) {
+    let (path, file_name, extension) = get_full_path_parts(original_full_path);
+
+    let new_name = format!("{}/{}-HALF-SIZE.{}", path.to_str().unwrap(), file_name.to_str().unwrap(), extension.to_str().unwrap());
+
+    let mut child = Command::new("ffmpeg")
+        .arg("-i")
+        .arg(original_full_path)
+        .arg("-vf")
+        .arg("scale=iw/2:-2")
+        .arg("-map")
+        .arg("0")
+        .arg("-map_metadata")
+        .arg("0")
+        .arg("-crf")
+        .arg("28")
+        .arg(new_name)
+        .spawn()
+        .unwrap();
+
+    let _result = child.wait().unwrap();
 }
