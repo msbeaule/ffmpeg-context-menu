@@ -49,9 +49,9 @@ fn main() {
 fn convert_to_new(original_full_path: &std::path::PathBuf) {
     let (path, file_name, extension) = get_full_path_parts(original_full_path);
 
-    println!("path: {:?}, file_name: {:?}, extension: {:?}", path, file_name, extension);
+    // println!("path: {:?}, file_name: {:?}, extension: {:?}", path, file_name, extension);
 
-    let new_name = format!("{}{}-CONVERTED.{}", path.to_str().unwrap(), file_name.to_str().unwrap(), extension.to_str().unwrap());
+    let new_name = format!("{}/{}-CONVERTED.{}", path.to_str().unwrap(), file_name.to_str().unwrap(), extension.to_str().unwrap());
 
     Command::new("ffmpeg")
         .arg("-i")
