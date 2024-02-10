@@ -41,6 +41,7 @@ fn main() {
     match args.pattern.as_str() {
         "new" => convert_to_new(&args.path),
         "half_size" => convert_to_new_half_size(&args.path),
+        "audio" => convert_to_audio_only(&args.path),
         _=> println!("wrong option entered, refer to README"),
     };
 
@@ -88,6 +89,24 @@ fn convert_to_new_half_size(original_full_path: &std::path::PathBuf) {
         .arg("0")
         .arg("-crf")
         .arg("28")
+        .arg(new_name)
+        .spawn()
+        .unwrap();
+
+    let _result = child.wait().unwrap();
+}
+
+fn convert_to_audio_only(original_full_path: &std::path::PathBuf) {
+    let (path, file_name, _) = get_full_path_parts(original_full_path);
+
+    let new_name = format!("{}/{}-audio.mp3", path.to_str().unwrap(), file_name.to_str().unwrap());
+
+    let mut child = Command::new("ffmpeg")
+        .arg("-i")
+        .arg(original_full_path)
+        .arg("-vn")
+        .arg("-acodec")
+        .arg("libmp3lame")
         .arg(new_name)
         .spawn()
         .unwrap();
