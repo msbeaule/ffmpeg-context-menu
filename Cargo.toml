@@ -7,3 +7,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "4.5.0", features = ["derive"] }
+winreg = "0.52.0"
+
+[[bin]]
+name = "install_win"
