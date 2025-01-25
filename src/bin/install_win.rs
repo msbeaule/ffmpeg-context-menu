@@ -25,6 +25,7 @@ fn main() -> io::Result<()> {
         vec!("convertFix", "Fix certain video issues", "\"fix\""),
         vec!("convertTo265", "Convert to 265", "\"265\""),
         vec!("convertRemoveBorder", "Remove the black borders around video", "\"remove_border\""),
+        vec!("convertRemoveBorderFaster", "Remove the black borders around video (faster)", "\"remove_border_faster\""),
     );
 
     // need to add more video extensions if needed

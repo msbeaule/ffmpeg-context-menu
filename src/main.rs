@@ -50,6 +50,7 @@ fn main() {
         "fix" => fix_video(&args.path),
         "265" => convert_to_265(&args.path),
         "remove_border" => find_and_remove_black_borders(&args.path),
+        "remove_border_faster" => find_and_remove_black_borders_faster(&args.path),
         _=> println!("wrong option entered, refer to README"),
     };
 
@@ -237,12 +238,78 @@ fn find_and_remove_black_borders(original_full_path: &std::path::PathBuf) {
 
 }
 
-/// internal function for the remove black borders functions
+/// internal function for the remove black borders function
 fn _get_crop(original_full_path: &std::path::PathBuf, extension: &OsStr) -> Result<String, Error> {
     // get the crop info first
     let child = Command::new("ffmpeg")
         .arg("-i")
         .arg(original_full_path)
+        .arg("-vf")
+        .arg("cropdetect=18:2:0")
+        .arg("-y") // -y to auto replace existing file
+        .arg(format!("dummy.{}", extension.to_str().unwrap()))
+        .stderr(Stdio::piped())
+        .spawn()?
+        .stderr
+        .ok_or_else( || Error::new(ErrorKind::Other,"Could not capture ffmpeg output for crop value."))?;
+
+    let reader = BufReader::new(child);
+
+    let needle = "Parsed_cropdetect_0";
+
+    let mut last_crop_line = "".to_string();
+
+    for line in reader.lines() {
+        let unwrapped = line.unwrap();
+        if unwrapped.contains(needle) {
+            last_crop_line = unwrapped;
+        }
+    }
+
+    return Ok(last_crop_line);
+}
+
+
+/// Finds where to crop out the black borders in the video by creating a dummy file, then crops the video
+fn find_and_remove_black_borders_faster(original_full_path: &std::path::PathBuf) {
+    let (path, file_name, extension) = get_full_path_parts(original_full_path);
+
+    let new_name = format!("{}/{}-CROPPED.{}", path.to_str().unwrap(), file_name.to_str().unwrap(), extension.to_str().unwrap());
+
+    let success = _get_crop_faster(original_full_path, extension);
+
+    let crop_value = success.unwrap();
+    if crop_value.is_empty() {
+        println!("No black borders in this video found, exiting...");
+        exit(0);
+    }
+    let crop: Vec<&str> = crop_value.split_whitespace().collect();
+
+    let mut child = Command::new("ffmpeg")
+        .arg("-i")
+        .arg(original_full_path)
+        .arg("-vf")
+        .arg(crop[13]) // get the 13th value, this is the crop value
+        .arg(new_name)
+        .spawn()
+        .unwrap();
+
+    let _result = child.wait().unwrap();
+
+}
+
+/// internal function for the remove black borders faster function
+fn _get_crop_faster(original_full_path: &std::path::PathBuf, extension: &OsStr) -> Result<String, Error> {
+    // get the crop info first
+
+    // ffmpeg -ss 90 -i input.mp4 -vframes 10 -vf cropdetect
+    let child = Command::new("ffmpeg")
+        .arg("-ss")
+        .arg("90")
+        .arg("-i")
+        .arg(original_full_path)
+        .arg("-vframes")
+        .arg("10")
         .arg("-vf")
         .arg("cropdetect=18:2:0")
         .arg("-y") // -y to auto replace existing file
