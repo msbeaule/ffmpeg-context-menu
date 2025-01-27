@@ -285,11 +285,70 @@ fn find_and_remove_black_borders_faster(original_full_path: &std::path::PathBuf)
     }
     let crop: Vec<&str> = crop_value.split_whitespace().collect();
 
+    println!("{:?}", crop);
+
+    let original_width_height_result = get_video_width_height(original_full_path);
+
+    if original_width_height_result.is_err() {
+        println!("Getting the video's width or height failed...");
+        pause();
+    }
+
+    let original_width_height = original_width_height_result.unwrap();
+
+    println!("{:?}", original_width_height);
+
+    let original_width_height_array: Vec<_> = original_width_height.split("x").collect();
+    // need these for the gpu crop, do to some math
+    let width_original_result  = original_width_height_array[0].parse::<i32>();
+    let height_original_result  = original_width_height_array[1].parse::<i32>();
+
+    if width_original_result.is_err() {
+        println!("Parsing width into number failed...");
+        pause();
+    }
+
+    if height_original_result.is_err() {
+        println!("Parsing height into number failed...");
+        pause();
+    }
+
+    let width_original: i32 = width_original_result.unwrap();
+    let height_original: i32 = height_original_result.unwrap();
+
+    let top_y1_full: Vec<_> = crop[5].split(":").collect();
+    let top_y1: i32 = top_y1_full[1].parse::<i32>().unwrap();
+    let top: i32 = top_y1 + 2; // the crop doesn't get all of it so add more here
+
+    let bottom_y2_full: Vec<_> = crop[6].split(":").collect();
+    let bottom_y2: i32 = bottom_y2_full[1].parse::<i32>().unwrap();
+    let bottom: i32 = height_original - bottom_y2;
+
+    let left_x1_full: Vec<_> = crop[3].split(":").collect();
+    let left_x1: i32 = left_x1_full[1].parse::<i32>().unwrap();
+    let left: i32 = left_x1;
+
+    let right_x2_full: Vec<_> = crop[4].split(":").collect();
+    let right_x2: i32 = right_x2_full[1].parse::<i32>().unwrap();
+    let right: i32 = width_original - right_x2;
+
+    let crop_gpu_string = format!("{}x{}x{}x{}", top, bottom, left, right);
+
+    // ffmpeg -hwaccel cuvid -c:v h264_cuvid -crop 0x0x0x0 -i "test-input.mov" -c:v h264_nvenc -y "TESTING.mov"
     let mut child = Command::new("ffmpeg")
+        .arg("-hwaccel")
+        .arg("cuvid")
+        .arg("-c:v")
+        .arg("h264_cuvid")
+        .arg("-crop")
+        .arg(crop_gpu_string) // the values to be removed from each side
         .arg("-i")
         .arg(original_full_path)
-        .arg("-vf")
-        .arg(crop[13]) // get the 13th value, this is the crop value
+        .arg("-c:v")
+        .arg("h264_nvenc")
+        .arg("-qp")
+        .arg("30")
+        .arg("-y") 
         .arg(new_name)
         .spawn()
         .unwrap();
@@ -305,7 +364,7 @@ fn _get_crop_faster(original_full_path: &std::path::PathBuf, extension: &OsStr) 
     // ffmpeg -ss 90 -i input.mp4 -vframes 10 -vf cropdetect
     let child = Command::new("ffmpeg")
         .arg("-ss")
-        .arg("90")
+        .arg("1")
         .arg("-i")
         .arg(original_full_path)
         .arg("-vframes")
@@ -333,4 +392,35 @@ fn _get_crop_faster(original_full_path: &std::path::PathBuf, extension: &OsStr) 
     }
 
     return Ok(last_crop_line);
+}
+
+fn get_video_width_height (original_full_path: &std::path::PathBuf) -> Result<String, Error> {
+
+    // ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 input.mp4
+    let child = Command::new("ffprobe")
+        .arg("-v")
+        .arg("error")
+        .arg("-select_streams")
+        .arg("v:0")
+        .arg("-show_entries")
+        .arg("stream=width,height")
+        .arg("-of")
+        .arg("csv=s=x:p=0")
+        .arg(original_full_path)
+        .stdout(Stdio::piped()) // ffprobe uses out...
+        .spawn()?
+        .stdout // need out here too... 
+        .ok_or_else( || Error::new(ErrorKind::Other,"Could not get original video width and height with ffprobe."))?;
+
+    let reader = BufReader::new(child);
+
+    let mut last_line = "".to_string();
+
+    for line in reader.lines() {
+        println!("reading lines from ffprobe...");
+        let unwrapped = line.unwrap();
+        last_line = unwrapped;
+    }
+
+    return Ok(last_line);
 }
